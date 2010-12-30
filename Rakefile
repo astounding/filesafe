@@ -1,4 +1,3 @@
-require 'rubygems/commands/push_command'
 require 'rake/gempackagetask'
 require 'rake/rdoctask'
 require 'rake/testtask'
@@ -47,10 +46,4 @@ task :default => [
   'pkg/filesafe-' + File.open('VERSION.txt','r').to_a.join.strip + '.gem',
   :rdoc
 ]
-
-task :publish => [ :default ] do
-  push = Gem::Commands::PushCommand.new
-  push.arguments << 'pkg/filesafe-' + File.open('VERSION.txt','r'){|f| f.read}.strip + '.gem'
-  push.execute
-end
 
