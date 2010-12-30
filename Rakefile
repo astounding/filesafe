@@ -1,5 +1,7 @@
+require 'rubygems/commands/push_command'
 require 'rake/gempackagetask'
 require 'rake/rdoctask'
+require 'rake/testtask'
 
 gemspec = Gem::Specification.new do |spec|
   spec.name         = 'filesafe'
@@ -11,11 +13,13 @@ gemspec = Gem::Specification.new do |spec|
   spec.description  = 'A utility script for encrypting and decrypting files using a randomly generated 256-bit AES key and initialization vector secured using the PBKDF2 password/passphrase key derivation algorithm to secure the file key and IV.'
   spec.has_rdoc     = false ## No documentation yet
   spec.extra_rdoc_files = [ 'README.txt' ]
-  spec.files = [
+  spec.files = FileList[
     'README.txt',
     'VERSION.txt',
     'Rakefile',
-    'bin/filesafe'
+    'bin/*',
+    'lib/*',
+    'test/*'
   ]
   spec.executables = [ 'filesafe' ]
   spec.add_dependency('pbkdf2', '>= 0.1.0')
@@ -34,8 +38,19 @@ Rake::RDocTask.new do |rdoc|
   rdoc.rdoc_files.include('README.txt')
 end
 
+Rake::TestTask.new do |t|
+  t.test_files = FileList['test/test*.rb']
+  t.verbose = true
+end
+
 task :default => [
   'pkg/filesafe-' + File.open('VERSION.txt','r').to_a.join.strip + '.gem',
   :rdoc
 ]
+
+task :publish => [ :default ] do
+  push = Gem::Commands::PushCommand.new
+  push.arguments << 'pkg/filesafe-' + File.open('VERSION.txt','r'){|f| f.read}.strip + '.gem'
+  push.execute
+end
 
