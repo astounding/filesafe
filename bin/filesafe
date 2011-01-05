@@ -38,14 +38,16 @@ Usage: #{$0} -e|-d [-n] [-p 'pass phrase'] [--] file [file [file...]]
   -e                Encrypt file(s)
   -d                Decrypt file(s)
   -p 'pass phrase'  Passphrase to use for operation
-  -n                Do NOT create a temporary password HMAC/hash file (during decryption)
+  -n                Do NOT use a temporary password HMAC/hash file:
+                     * ignore such file if found during encryption
+                     * do not create such file during decryption
   --                End of options -- all subsequent arguments are files
 
   EOM
   exit
 end
 
-opt = {}
+opt = { :notemp => false }
 while ARGV.size > 0 && ARGV[0][0,1] == '-'
   case ARGV[0]
   when '-e'
@@ -62,7 +64,6 @@ while ARGV.size > 0 && ARGV[0][0,1] == '-'
     opt[:phrase] = ARGV.shift
   when '-n'
     ARGV.shift
-    usage "This option only applies to decryption operations." unless opt[:op] == :decrypt
     opt[:notemp] = true
   when '--'
     break
@@ -79,7 +80,7 @@ ARGV.each do |file|
       FileSafe.decrypt(file, opt[:phrase], opt[:notemp])
       puts "FILE DECRYPTED: #{file}"
     else
-      FileSafe.encrypt(file, opt[:phrase])
+      FileSafe.encrypt(file, opt[:phrase], opt[:notemp])
       puts "ENCRYPTED: #{file}"
     end
   rescue StandardError => e

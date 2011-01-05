@@ -84,27 +84,43 @@ module FileSafe
     end while true
   end
 
+  def self.passmatch?(passphrase, salt, hash)
+    pbkdf2(passphrase, salt, HMAC_LEN) == hash
+  end
+
   # Encrypt a file with the supplied passphrase--or if none is supplied,
   # read a passphrase from the terminal.
-  def self.encrypt(file, passphrase=nil)
+  def self.encrypt(file, passphrase=nil, notemp=true)
     raise "Cannot encrypt non-existent file: #{file.inspect}" unless File.exist?(file)
     raise "Cannot encrypt unreadable file: #{file.inspect}" unless File.readable?(file)
     raise "Cannot encrypt unwritable file: #{file.inspect}" unless File.writable?(file)
     passhash   = false
-    if File.exist?(file + PASSHASH_SUFFIX)
+    if !notemp && File.exist?(file + PASSHASH_SUFFIX)
       raise "Cannot read password hash temporary file: #{(file + PASSHASH_SUFFIX).inspect}" unless File.readable?(file + PASSHASH_SUFFIX)
       raise "Password hash temporary file length is invalid: #{(file + PASSHASH_SUFFIX).inspect}" unless File.size(file + PASSHASH_SUFFIX) == SALT_LEN + HMAC_LEN
-      fp = File.open(file + PASSHASH_SUFFIX, File::RDONLY)
-      psalt = fp.read(SALT_LEN)
-      passcheck = fp.read(HMAC_LEN)
-      loop do
-        passphrase = getphrase if passphrase.nil?
-        phash = pbkdf2(passphrase, psalt, HMAC_LEN)  ## Use PBKDF2 as a multi-iteration one-way hash function
-        break if passcheck == phash
-        puts "*** ERROR: Passphrase mismatch. Try again, abort, or delete temporary file: #{file + PASSHASH_SUFFIX}"
-        passphrase = nil
-      end
+
       passhash = true
+
+      ## Read temporary passphrase hash file:
+      psalt = pcheck = nil
+      File.open(file + PASSHASH_SUFFIX, File::RDONLY) do |fp|
+        psalt  = fp.read(SALT_LEN)
+        pcheck = fp.read(HMAC_LEN)
+      end
+
+      ## Was a passphrase supplied?
+      if passphrase.nil?
+        ## No, so ask for one:
+        loop do
+          passphrase = getphrase
+          ## Check the phrase against the stored hash:
+          break if passmatch?(passphrase, psalt, pcheck)
+          puts "*** ERROR: Passphrase mismatch. Try again, abort, or delete temporary file: #{file + PASSHASH_SUFFIX}"
+        end
+      else
+        ## Yes, so check supplied phrase against the stored hash:
+        raise "Passphrase mismatch" unless passmatch?(passphrase, psalt, pcheck)
+      end
     elsif passphrase.nil?
       puts "*** ALERT: Enter your NEW passphrase twice. DO NOT FORGET IT, or you may lose your data!"
       passphrase = getphrase(true)
@@ -298,7 +314,7 @@ module FileSafe
       ## Write password hash temp. file using PBKDF2 as an iterated hash of sorts of HMAC_LEN bytes:
       salt = SecureRandom.random_bytes(SALT_LEN) if salt.nil?
       File.open(file + PASSHASH_SUFFIX, File::WRONLY|File::EXCL|File::CREAT) do |f|
-        f.write(pbkdf2(passphrase, salt, HMAC_LEN)+salt)
+        f.write(salt + pbkdf2(passphrase, salt, HMAC_LEN))
       end
     end
   end
