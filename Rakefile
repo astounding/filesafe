@@ -10,8 +10,9 @@ gemspec = Gem::Specification.new do |spec|
   spec.homepage     = 'http://www.aarongifford.com/computers/filesafe/'
   spec.summary      = 'Encrypt/decrypt files with a random 256-bit AES key secured by a passphrase derived master key using PBKDF2'
   spec.description  = 'A utility script for encrypting and decrypting files using a randomly generated 256-bit AES key and initialization vector secured using the PBKDF2 password/passphrase key derivation algorithm to secure the file key and IV.'
-  spec.has_rdoc     = false ## No documentation yet
+  spec.has_rdoc     = true ## Very limited documentation
   spec.extra_rdoc_files = [ 'README.txt' ]
+  spec.require_paths = [ 'lib' ]
   spec.files = FileList[
     'README.txt',
     'VERSION.txt',
@@ -34,7 +35,7 @@ Rake::RDocTask.new do |rdoc|
   rdoc.name     = 'rdoc'
   rdoc.main     = 'README.txt'
   rdoc.rdoc_dir = 'doc'
-  rdoc.rdoc_files.include('README.txt')
+  rdoc.rdoc_files.include('README.txt', 'lib/*')
 end
 
 Rake::TestTask.new do |t|

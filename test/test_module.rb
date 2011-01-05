@@ -39,7 +39,7 @@ class FileSafeModuleTest < Test::Unit::TestCase
     assert(File.size(@testfile) == @plaintext_size)
   end
 
-  def test_hashpass
+  def test_pbkdf2
     pass = "When in the course of human events..."
     salt = "01caf8e2e844a37810280f231f3059aca54e631528c1c57eb643df2c" +
            "8c6c74bc4a6136784ecff873dcd09a80059f6e80"
@@ -48,8 +48,8 @@ class FileSafeModuleTest < Test::Unit::TestCase
            "9f42a359ef12536c"
     salt = [salt].pack('H*')
     goal = [goal].pack('H*')
-    hash = FileSafe.hashpass(pass, salt)
-    assert(hash[1] == goal)
+    hash = FileSafe.pbkdf2(pass, salt, FileSafe::HMAC_LEN)
+    assert(hash == goal)
   end
 end
 

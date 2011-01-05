@@ -1,5 +1,35 @@
 #!/usr/bin/env ruby
+#
+# FileSafe - http://www.aarongifford.com/computers/filesafe/
+#
+# A simple file encryption/decryption script that uses 256-bit AES encryption,
+# a secure random number/data source, and the password/passphrase (via PBKDF2)
+# to encrypt/decrypt one or more files.
+#
+# Author::    Aaron D. Gifford - http://www.aarongifford.com/
+# Copyright:: Copyright (c) 2010 Aaron D. Gifford
+# License::   This file may be used and distributed under the MIT license
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+# 
+# The above copyright notice and this permission notice shall be included in
+# all copies or substantial portions of the Software.
+# 
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+# THE SOFTWARE.
 
+# FileSafe module has four module methods, two for file encryption/decryption,
+# one for passphrase hashing, and one for reading a passphrase from a terminal.
 module FileSafe
   require 'openssl'       ## Encryption/HMAC/Hash algorithms
   require 'securerandom'  ## Cryptographically secure source of random data
@@ -7,20 +37,42 @@ module FileSafe
   require 'highline'      ## For reading a passphrase from a terminal
   require 'tempfile'      ## Temporary file creation
 
-  ## CONFIGURATION ITEMS:
+  # Temporary passphrase hash file suffix:
   PASSHASH_SUFFIX  = '.pass'
+
+  # Default cipher (AES-256 in CBC mode):
   CIPHER           = 'aes-256-cbc'
+
   cipher = OpenSSL::Cipher::Cipher.new(CIPHER)
+
+  # Cipher block length/size (128 bits/16 bytes for AES-256):
   BLOCK_LEN        = cipher.block_size
+
+  # Cipher key length (256 bits/32 bytes for AES-256):
   KEY_LEN          = cipher.key_len
+
+  # Cipher initialization vector (IV) length (128 bits/16 bytes for AES-256):
   IV_LEN           = cipher.iv_len
+
+  # Salt size/length (384 bits/48 bytes, KEY + IV size):
   SALT_LEN         = KEY_LEN + IV_LEN
+
+  # Default hash function to use for HMAC (SHA-512 by default):
   HMAC_FUNC        = 'sha512'
+
+  # Default HMAC size/length (512 bits/64 bytes for HMAC-SHA-512):
   HMAC_LEN         = OpenSSL::HMAC.new('', HMAC_FUNC).digest.bytesize
+
+  # Default ciphertext file header size (key + IV + salt + HMAC = 1280 bits/160 bytes by default) 
   HEADER_LEN       = KEY_LEN + IV_LEN + SALT_LEN + HMAC_LEN
+
+  # Number of iterations to use in PBKDF2 (4096 by default):
   ITERATIONS       = 4096
+
+  # Number of bytes to read from plaintext/ciphertext files at a time (64KB by default): 
   FILE_CHUNK_LEN   = 65536
 
+  # Read a passphrase from a terminal.
   def self.getphrase(check=false)
     begin
       phrase = HighLine.new.ask('Passphrase: '){|q| q.echo = '*' ; q.overwrite = true }
@@ -32,6 +84,8 @@ module FileSafe
     end while true
   end
 
+  # Encrypt a file with the supplied passphrase--or if none is supplied,
+  # read a passphrase from the terminal.
   def self.encrypt(file, passphrase=nil)
     raise "Cannot encrypt non-existent file: #{file.inspect}" unless File.exist?(file)
     raise "Cannot encrypt unreadable file: #{file.inspect}" unless File.readable?(file)
@@ -41,12 +95,12 @@ module FileSafe
       raise "Cannot read password hash temporary file: #{(file + PASSHASH_SUFFIX).inspect}" unless File.readable?(file + PASSHASH_SUFFIX)
       raise "Password hash temporary file length is invalid: #{(file + PASSHASH_SUFFIX).inspect}" unless File.size(file + PASSHASH_SUFFIX) == SALT_LEN + HMAC_LEN
       fp = File.open(file + PASSHASH_SUFFIX, File::RDONLY)
-      salt = fp.read(SALT_LEN)
+      psalt = fp.read(SALT_LEN)
       passcheck = fp.read(HMAC_LEN)
       loop do
         passphrase = getphrase if passphrase.nil?
-        phash = hashpass(passphrase, salt)
-        break if passcheck == phash[1]
+        phash = pbkdf2(passphrase, psalt, HMAC_LEN)  ## Use PBKDF2 as a multi-iteration one-way hash function
+        break if passcheck == phash
         puts "*** ERROR: Passphrase mismatch. Try again, abort, or delete temporary file: #{file + PASSHASH_SUFFIX}"
         passphrase = nil
       end
@@ -62,13 +116,7 @@ module FileSafe
     file_iv   = SecureRandom.random_bytes(IV_LEN)    ## And a random initialization vector
 
     ## Encrypt the file key and IV using password-derived keying material:
-    keymaterial = PBKDF2.new do |p|
-      p.hash_function = HMAC_FUNC
-      p.password      = passphrase
-      p.salt          = salt
-      p.iterations    = ITERATIONS
-      p.key_length    = KEY_LEN + IV_LEN
-    end.bin_string
+    keymaterial = pbkdf2(passphrase, salt, KEY_LEN + IV_LEN)
     cipher = OpenSSL::Cipher::Cipher.new(CIPHER)
     cipher.encrypt
     ## No padding required for this operation since the file key + IV is
@@ -87,7 +135,7 @@ module FileSafe
     wfp = Tempfile.new(File.basename(rfp.path), File.dirname(rfp.path))
 
     ## Write the salt and encrypted file key + IV and
-    ## temporarily fill the HMAC slot with zero-bytes:
+    ## temporarily fill the PBKDF2-hashed HMAC slot with zero-bytes:
     wfp.write(salt + encrypted_file_key + encrypted_file_iv + (0.chr * HMAC_LEN))
 
     ## Start the HMAC:
@@ -119,9 +167,11 @@ module FileSafe
       hmac << data
     end
 
-    ## Write HMAC digest to file:
+    ## Instead of storing the HMAC directly, use PBKDF2 to store data generated
+    ## from the HMAC in hopes that PBKDF2's multiple iterations will make
+    ## brute force dictionary attacks against the passphrase much more cumbersome:
     wfp.pos = SALT_LEN + KEY_LEN + IV_LEN
-    wfp.write(hmac.digest)
+    wfp.write(pbkdf2(passphrase + hmac.digest, salt, HMAC_LEN))
 
     ## Overwrite the original plaintext file with zero bytes.
     ## This adds a small measure of security against recovering
@@ -153,6 +203,10 @@ module FileSafe
     File.delete(file + PASSHASH_SUFFIX) if passhash
   end
 
+  # Decrypt a file with the supplied passphrase--or if none is supplied,
+  # read a passphrase from the terminal. Optionally create a temporary
+  # file of the same name with a suffix (by default ".pass") and store
+  # a passphrase hash in that file for future use.
   def self.decrypt(file, passphrase=nil, notemp=true)
     raise "Cannot decrypt non-existent file: #{file.inspect}" unless File.exist?(file)
     raise "Cannot decrypt unreadable file: #{file.inspect}" unless File.readable?(file)
@@ -166,7 +220,7 @@ module FileSafe
       salt               = fp.read(SALT_LEN)
       encrypted_file_key = fp.read(KEY_LEN)
       encrypted_file_iv  = fp.read(IV_LEN)
-      file_hmac          = fp.read(HMAC_LEN)
+      file_check         = fp.read(HMAC_LEN)
       test_hmac = OpenSSL::HMAC.new(passphrase, HMAC_FUNC)
       test_hmac << salt
       test_hmac << encrypted_file_key
@@ -176,7 +230,7 @@ module FileSafe
         test_hmac << data unless data.bytesize == 0
       end
       fp.close
-      break if test_hmac.digest == file_hmac
+      break if pbkdf2(passphrase + test_hmac.digest, salt, HMAC_LEN) == file_check
       puts "*** ERROR: Incorrect passphrase, or file is not encrypted. Try again or abort."
       passphrase = nil
     end
@@ -242,24 +296,24 @@ module FileSafe
 
     unless notemp
       ## Write password hash temp. file using PBKDF2 as an iterated hash of sorts of HMAC_LEN bytes:
-      File.open(file + PASSHASH_SUFFIX, File::WRONLY|File::EXCL|File::CREAT) {|f| f.write(hashpass(passphrase).join)}
+      salt = SecureRandom.random_bytes(SALT_LEN) if salt.nil?
+      File.open(file + PASSHASH_SUFFIX, File::WRONLY|File::EXCL|File::CREAT) do |f|
+        f.write(pbkdf2(passphrase, salt, HMAC_LEN)+salt)
+      end
     end
   end
   
-  ## Use PBKDF2 as if it were a hash function with salt to generate a
-  ## next-to-impossible-to-reverse-or-deliberately-collide hash of the
-  ## supplied passphrase:
-  def self.hashpass(passphrase, salt=nil)
-    ## Grab a new chunk of secure random data if no salt was supplied:
-    salt = SecureRandom.random_bytes(SALT_LEN) if salt.nil?
+  # Execute PBKDF2 to generate the specified number of bytes of
+  # pseudo-random key material.
+  def self.pbkdf2(passphrase, salt, len)
     hash = PBKDF2.new do |p|
       p.hash_function = HMAC_FUNC
       p.password      = passphrase
       p.salt          = salt
       p.iterations    = ITERATIONS
-      p.key_length    = HMAC_LEN
+      p.key_length    = len
     end.bin_string
-    [ salt, hash ]
   end
 
 end
+
