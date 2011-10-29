@@ -1,4 +1,5 @@
 #!/usr/bin/env ruby
+# encoding: ASCII-8BIT
 
 require 'test/unit'
 require 'digest/sha2'
@@ -43,13 +44,17 @@ class FileSafeModuleTest < Test::Unit::TestCase
     pass = "When in the course of human events..."
     salt = "01caf8e2e844a37810280f231f3059aca54e631528c1c57eb643df2c" +
            "8c6c74bc4a6136784ecff873dcd09a80059f6e80"
-    goal = "6c726ee33ad9e171612d646403b3e01bba0451574cde9b0af90d957e" +
-           "1b33c0830db1ac63b986f755faa8b1e9a944dbf4c7086da2eae122c3" +
-           "9f42a359ef12536c"
+    goal = "74a1aa134ea370cbff2776f9271e500e7774a567c47c565cf4c489f1" +
+           "c029d0fb406d195f7678001d454ef803e6b55394fd52257261a5bb81" +
+           "413db6b65af819a5"
+
     salt = [salt].pack('H*')
     goal = [goal].pack('H*')
+    assert(FileSafe::HMAC_LEN == goal.bytesize, "Module HMAC length has changed since test was created. (Expected #{goal.bytesize} bytes, length is now #{FileSafe::HMAC_LEN} bytes.)")
+    assert(FileSafe::ITERATIONS == 16384, "Module ITERATIONS has changed. (Expected 16384 iterations, currently set to #{FileSafe::ITERATIONS} iterations.)")
+    assert(FileSafe::HMAC_FUNC == 'sha512', "Module HMAC_FUNC has changed. (Expected 'sha512' hash function for HMAC, instead of '#{FileSafe::HMAC_FUNC}' instead.)")
     hash = FileSafe.pbkdf2(pass, salt, FileSafe::HMAC_LEN)
-    assert(hash == goal)
+    assert(hash == goal, "PBKDF2 output does NOT match expected value.")
   end
 end
 
