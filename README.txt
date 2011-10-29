@@ -132,11 +132,3 @@ Please report bugs by going to the author's web site and clicking on the
 
 * http://www.aarongifford.com/leaveanote.html
 
-I am debating as to whether I should replace the HMAC in the file header
-with a PBKDF2 function, perhaps PBKDF2(passphrase, iterations, HMAC)
-so as to make dictionary attacks against passwords much more difficult.
-It would result in a slight file format change, so I'd have to bump up
-the version, and perhaps provide a fallback to the old method if a
-passphrase doesn't seem to match a ciphertext file's stored PBKDF2
-result.
-
