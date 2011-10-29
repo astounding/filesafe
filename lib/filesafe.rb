@@ -1,4 +1,5 @@
 #!/usr/bin/env ruby
+# encoding: ASCII-8BIT
 #
 # FileSafe - http://www.aarongifford.com/computers/filesafe/
 #
@@ -66,8 +67,8 @@ module FileSafe
   # Default ciphertext file header size (key + IV + salt + HMAC = 1280 bits/160 bytes by default) 
   HEADER_LEN       = KEY_LEN + IV_LEN + SALT_LEN + HMAC_LEN
 
-  # Number of iterations to use in PBKDF2 (4096 by default):
-  ITERATIONS       = 4096
+  # Number of iterations to use in PBKDF2 (16384 by default):
+  ITERATIONS       = 16384
 
   # Number of bytes to read from plaintext/ciphertext files at a time (64KB by default): 
   FILE_CHUNK_LEN   = 65536
@@ -230,6 +231,7 @@ module FileSafe
     fsize = File.size(file)
     raise "File is not in valid encrypted format: #{file.inspect}" unless fsize > HEADER_LEN && (fsize - HEADER_LEN) % BLOCK_LEN == 0
     salt = encrypted_file_key = encrypted_file_iv = nil
+    interactive = passphrase.nil?
     loop do
       passphrase = getphrase if passphrase.nil?
       fp = File.open(file, File::RDONLY)
@@ -247,6 +249,7 @@ module FileSafe
       end
       fp.close
       break if pbkdf2(passphrase + test_hmac.digest, salt, HMAC_LEN) == file_check
+      raise "Incorrect passphrase, or file is not encrypted." unless interactive
       puts "*** ERROR: Incorrect passphrase, or file is not encrypted. Try again or abort."
       passphrase = nil
     end
@@ -328,7 +331,7 @@ module FileSafe
       p.salt          = salt
       p.iterations    = ITERATIONS
       p.key_length    = len
-    end.bin_string
+    end.bin_string.force_encoding(Encoding::BINARY)
   end
 
 end
