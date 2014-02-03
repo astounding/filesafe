@@ -76,9 +76,9 @@ module FileSafe
   # Read a passphrase from a terminal.
   def self.getphrase(check=false)
     begin
-      phrase = HighLine.new.ask('Passphrase: '){|q| q.echo = '*' ; q.overwrite = true }
+      phrase = HighLine.new.ask('Passphrase: '){|q| q.echo = '*' ; q.overwrite = true ; q.validate = nil }
       return phrase unless check
-      tmp = HighLine.new.ask('Retype passphrase: '){|q| q.echo = '*' ; q.overwrite = true }
+      tmp = HighLine.new.ask('Retype passphrase: '){|q| q.echo = '*' ; q.overwrite = true ; q.validate = nil }
       return phrase if tmp == phrase
     rescue Interrupt
       exit -1
