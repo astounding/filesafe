@@ -1,10 +1,11 @@
-require 'rake/gempackagetask'
-require 'rake/rdoctask'
+require 'rubygems/package_task'
+require 'rdoc/task'
 require 'rake/testtask'
 
 gemspec = Gem::Specification.new do |spec|
   spec.name         = 'filesafe'
   spec.version      = File.open('VERSION.txt','r').to_a.join.strip
+  spec.licenses     = ['MIT']
   spec.date         = File.mtime('VERSION.txt')
   spec.author       = 'Aaron D. Gifford'
   spec.homepage     = 'http://www.aarongifford.com/computers/filesafe/'
@@ -22,16 +23,16 @@ gemspec = Gem::Specification.new do |spec|
     'test/*'
   ]
   spec.executables = [ 'filesafe' ]
-  spec.add_dependency('pbkdf2-ruby', '>= 0.2.0')
-  spec.add_dependency('highline', '>= 1.6.1')
+  spec.add_runtime_dependency 'pbkdf2-ruby', '~> 0.2', '>= 0.2.0'
+  spec.add_runtime_dependency 'highline', '~>1.6.1', '>= 1.6.1'
 end
 
-Rake::GemPackageTask.new(gemspec) do |pkg|
+Gem::PackageTask.new(gemspec) do |pkg|
   pkg.need_zip = true
   pkg.need_tar = true
 end
 
-Rake::RDocTask.new do |rdoc|
+RDoc::Task.new do |rdoc|
   rdoc.name     = 'rdoc'
   rdoc.main     = 'README.txt'
   rdoc.rdoc_dir = 'doc'
