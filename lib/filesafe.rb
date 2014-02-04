@@ -91,7 +91,7 @@ module FileSafe
 
   # Encrypt a file with the supplied passphrase--or if none is supplied,
   # read a passphrase from the terminal.
-  def self.encrypt(file, passphrase=nil, notemp=true)
+  def self.encrypt(file, passphrase=nil, notemp=true, debug_params=nil)
     raise "Cannot encrypt non-existent file: #{file.inspect}" unless File.exist?(file)
     raise "Cannot encrypt unreadable file: #{file.inspect}" unless File.readable?(file)
     raise "Cannot encrypt unwritable file: #{file.inspect}" unless File.writable?(file)
@@ -127,10 +127,21 @@ module FileSafe
       passphrase = getphrase(true)
     end
 
-    ## Use secure random data to populate salt, key, and IV:
-    salt      = SecureRandom.random_bytes(SALT_LEN)  ## Acquire some fresh salt
-    file_key  = SecureRandom.random_bytes(KEY_LEN)   ## Get some random key material
-    file_iv   = SecureRandom.random_bytes(IV_LEN)    ## And a random initialization vector
+    ## Use secure random data to populate salt, key, and iv (unless debugging data is provided):
+    if debug_params.nil?
+      file_key  = SecureRandom.random_bytes(KEY_LEN)   ## Get some random key material
+      file_iv   = SecureRandom.random_bytes(IV_LEN)    ## And a random initialization vector
+      salt      = SecureRandom.random_bytes(SALT_LEN)
+    else
+      ## Manually-provided debugging/testing data will be used instead
+      ## (not recommended unless testing/debugging):
+      raise "Invalid debugging parameter data provided!" unless debug_params.is_a?(String) &&
+                                                         debug_params.encoding == Encoding::BINARY &&
+                                                         debug_params.size == SALT_LEN + KEY_LEN + IV_LEN
+      salt     = debug_params.slice!(0,SALT_LEN)
+      file_key = debug_params.slice!(0,KEY_LEN)
+      file_iv  = debug_params
+    end
 
     ## Encrypt the file key and IV using password-derived keying material:
     keymaterial = pbkdf2(passphrase, salt, KEY_LEN + IV_LEN)
