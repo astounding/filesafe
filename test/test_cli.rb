@@ -3,6 +3,7 @@
 
 require 'test/unit'
 require 'digest/sha2'
+require_relative '../lib/filesafe.rb'
 
 class FileSafeCLITest < Test::Unit::TestCase
   FILESAFE = File.join(File.dirname(__FILE__), '..', 'bin', 'filesafe')
