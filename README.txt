@@ -114,7 +114,7 @@ This script requires or relies on:
   tempfile      -- for temporary file creation
 
 It uses the following gems:
-  pbkdf2        -- for the password-based key derivitive function PBKDF2
+  pbkdf2-ruby   -- for the password-based key derivitive function PBKDF2
   highline      -- for reading a password/passphrase from a terminal
 
 
