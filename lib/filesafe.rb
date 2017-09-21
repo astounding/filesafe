@@ -17,10 +17,10 @@
 # to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 # copies of the Software, and to permit persons to whom the Software is
 # furnished to do so, subject to the following conditions:
-# 
+#
 # The above copyright notice and this permission notice shall be included in
 # all copies or substantial portions of the Software.
-# 
+#
 # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 # IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 # FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -44,7 +44,7 @@ module FileSafe
   # Default cipher (AES-256 in CBC mode):
   CIPHER           = 'aes-256-cbc'
 
-  cipher = OpenSSL::Cipher::Cipher.new(CIPHER)
+  cipher = OpenSSL::Cipher.new(CIPHER)
 
   # Cipher block length/size (128 bits/16 bytes for AES-256):
   BLOCK_LEN        = cipher.block_size
@@ -64,13 +64,13 @@ module FileSafe
   # Default HMAC size/length (512 bits/64 bytes for HMAC-SHA-512):
   HMAC_LEN         = OpenSSL::HMAC.new('', HMAC_FUNC).digest.bytesize
 
-  # Default ciphertext file header size (key + IV + salt + HMAC = 1280 bits/160 bytes by default) 
+  # Default ciphertext file header size (key + IV + salt + HMAC = 1280 bits/160 bytes by default)
   HEADER_LEN       = KEY_LEN + IV_LEN + SALT_LEN + HMAC_LEN
 
   # Number of iterations to use in PBKDF2 (16384 by default):
   ITERATIONS       = 16384
 
-  # Number of bytes to read from plaintext/ciphertext files at a time (64KB by default): 
+  # Number of bytes to read from plaintext/ciphertext files at a time (64KB by default):
   FILE_CHUNK_LEN   = 65536
 
   # Read a passphrase from a terminal.
@@ -81,7 +81,7 @@ module FileSafe
       tmp = HighLine.new.ask('Retype passphrase: '){|q| q.echo = '*' ; q.overwrite = true ; q.validate = nil }
       return phrase if tmp == phrase
     rescue Interrupt
-      exit -1
+      exit - 1
     end while true
   end
 
@@ -145,7 +145,7 @@ module FileSafe
 
     ## Encrypt the file key and IV using password-derived keying material:
     keymaterial = pbkdf2(passphrase, salt, KEY_LEN + IV_LEN)
-    cipher = OpenSSL::Cipher::Cipher.new(CIPHER)
+    cipher = OpenSSL::Cipher.new(CIPHER)
     cipher.encrypt
     ## No padding required for this operation since the file key + IV is
     ## an exact multiple of the cipher block length:
@@ -173,7 +173,7 @@ module FileSafe
     hmac << encrypted_file_iv
 
     ## Encrypt file with file key + IV:
-    cipher = OpenSSL::Cipher::Cipher.new(CIPHER)
+    cipher = OpenSSL::Cipher.new(CIPHER)
     cipher.encrypt
     ## Encryption of file contents uses PCKS#5 padding which OpenSSL should
     ## have enabled by default.  Nevertheless, we explicitly enable it here:
@@ -275,7 +275,7 @@ module FileSafe
       p.iterations    = ITERATIONS
       p.key_length    = KEY_LEN + IV_LEN
     end.bin_string
-    cipher = OpenSSL::Cipher::Cipher.new(CIPHER)
+    cipher = OpenSSL::Cipher.new(CIPHER)
     cipher.decrypt
     cipher.padding = 0 ## No padding is required for this operation
     cipher.key     = keymaterial[0,KEY_LEN]
@@ -286,7 +286,7 @@ module FileSafe
     file_iv  = keymaterial[KEY_LEN,IV_LEN]
 
     ## Decrypt file:
-    cipher = OpenSSL::Cipher::Cipher.new(CIPHER)
+    cipher = OpenSSL::Cipher.new(CIPHER)
     cipher.decrypt
     cipher.padding = 1 ## File contents use PCKS#5 padding,OpenSSL's default method
     cipher.key     = file_key
@@ -332,11 +332,11 @@ module FileSafe
       end
     end
   end
-  
+
   # Execute PBKDF2 to generate the specified number of bytes of
   # pseudo-random key material.
   def self.pbkdf2(passphrase, salt, len)
-    hash = PBKDF2.new do |p|
+    PBKDF2.new do |p|
       p.hash_function = HMAC_FUNC
       p.password      = passphrase
       p.salt          = salt
@@ -346,4 +346,3 @@ module FileSafe
   end
 
 end
-
