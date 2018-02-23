@@ -32,9 +32,8 @@
 # FileSafe module has four module methods, two for file encryption/decryption,
 # one for passphrase hashing, and one for reading a passphrase from a terminal.
 module FileSafe
-  require 'openssl'       ## Encryption/HMAC/Hash algorithms
+  require 'openssl'       ## Encryption/HMAC/Hash/PBKDF2 algorithms
   require 'securerandom'  ## Cryptographically secure source of random data
-  require 'pbkdf2'        ## PBKDF2 algorithm for key material generation
   require 'highline'      ## For reading a passphrase from a terminal
   require 'tempfile'      ## Temporary file creation
 
@@ -59,10 +58,10 @@ module FileSafe
   SALT_LEN         = KEY_LEN + IV_LEN
 
   # Default hash function to use for HMAC (SHA-512 by default):
-  HMAC_FUNC        = 'sha512'
+  HMAC_FUNC        = OpenSSL::Digest.new('sha512')
 
   # Default HMAC size/length (512 bits/64 bytes for HMAC-SHA-512):
-  HMAC_LEN         = OpenSSL::HMAC.new('', HMAC_FUNC).digest.bytesize
+  HMAC_LEN         = HMAC_FUNC.digest_length
 
   # Default ciphertext file header size (key + IV + salt + HMAC = 1280 bits/160 bytes by default)
   HEADER_LEN       = KEY_LEN + IV_LEN + SALT_LEN + HMAC_LEN
@@ -268,13 +267,7 @@ module FileSafe
     ## Extract and decrypt the encrypted file key + IV.
     ## First, regenerate the password-based key material that encrypts the
     ## file key + IV:
-    keymaterial = PBKDF2.new do |p|
-      p.hash_function = HMAC_FUNC
-      p.password      = passphrase
-      p.salt          = salt
-      p.iterations    = ITERATIONS
-      p.key_length    = KEY_LEN + IV_LEN
-    end.bin_string
+    keymaterial = pbkdf2(passphrase, salt, KEY_LEN + IV_LEN)
     cipher = OpenSSL::Cipher.new(CIPHER)
     cipher.decrypt
     cipher.padding = 0 ## No padding is required for this operation
@@ -336,13 +329,13 @@ module FileSafe
   # Execute PBKDF2 to generate the specified number of bytes of
   # pseudo-random key material.
   def self.pbkdf2(passphrase, salt, len)
-    PBKDF2.new do |p|
-      p.hash_function = HMAC_FUNC
-      p.password      = passphrase
-      p.salt          = salt
-      p.iterations    = ITERATIONS
-      p.key_length    = len
-    end.bin_string.force_encoding(Encoding::BINARY)
+    OpenSSL::PKCS5.pbkdf2_hmac(
+      passphrase,
+      salt,
+      ITERATIONS,
+      len,
+      OpenSSL::Digest.new(HMAC_FUNC)
+    )
   end
 
 end

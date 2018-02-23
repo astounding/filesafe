@@ -2,7 +2,7 @@
 # encoding: ASCII-8BIT
 
 require 'test/unit'
-require 'digest/sha2'
+require 'openssl'
 require_relative '../lib/filesafe.rb'
 
 class FileSafeModuleTest < Test::Unit::TestCase
@@ -52,7 +52,7 @@ class FileSafeModuleTest < Test::Unit::TestCase
     goal = [goal].pack('H*')
     assert(FileSafe::HMAC_LEN == goal.bytesize, "Module HMAC length has changed since test was created. (Expected #{goal.bytesize} bytes, length is now #{FileSafe::HMAC_LEN} bytes.)")
     assert(FileSafe::ITERATIONS == 16384, "Module ITERATIONS has changed. (Expected 16384 iterations, currently set to #{FileSafe::ITERATIONS} iterations.)")
-    assert(FileSafe::HMAC_FUNC == 'sha512', "Module HMAC_FUNC has changed. (Expected 'sha512' hash function for HMAC, instead of '#{FileSafe::HMAC_FUNC}' instead.)")
+    assert(FileSafe::HMAC_FUNC == OpenSSL::Digest.new('sha512'), "Module HMAC_FUNC has changed. (Expected 'sha512' hash digest function for HMAC, instead of '#{FileSafe::HMAC_FUNC}' instead.)")
     hash = FileSafe.pbkdf2(pass, salt, FileSafe::HMAC_LEN)
     assert(hash == goal, "PBKDF2 output does NOT match expected value.")
   end

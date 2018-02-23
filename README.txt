@@ -15,8 +15,10 @@ passphrase.  The method used should be reasonably secure for the uses I
 required.  I have NOT adapted the script (yet) for non-POSIX
 environments (Windows) however.
 
-This script was written and tested using Ruby 1.9.x.  No attempts to
-adapt or test it under earlier Ruby versions have been made.
+This script was originally written and tested using Ruby 1.9.x. HOWEVER
+it may no longer be compatible with older versions.  The author uses it
+with Ruby version 2.4.3 on a FreeBSD 11.1 system.    No attempts to
+adapt or test it on any other Ruby versions have been made.
 
 ENCRYPTED FILE FORMAT
 
@@ -100,6 +102,12 @@ key), the user is asked for the original passphrase once again.  Should
 the user decide to use a new phrase, the temporary file may be safely
 deleted.
 
+VERSION NOTES
+
+Version 4.0.0 removes use of the 'pbkdf2' gem and uses OpenSSL's PBKDF2
+function instead.  Some older OpenSSL versions might not fully support
+this, and so version 4.x of this gem might not work there.
+
 
 LICENSE
 
@@ -109,12 +117,11 @@ This script is licensed under an MIT-style license.  See the LICENSE.txt file.
 REQUIREMENTS
 
 This script requires or relies on:
-  openssl       -- encryption/HMAC/hash algorithms
+  openssl       -- encryption/HMAC/hash/PBKDF2 algorithms
   securerandom  -- cryptographically secure random data
   tempfile      -- for temporary file creation
 
 It uses the following gems:
-  pbkdf2-ruby   -- for the password-based key derivitive function PBKDF2
   highline      -- for reading a password/passphrase from a terminal
 
 

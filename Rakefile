@@ -23,7 +23,6 @@ gemspec = Gem::Specification.new do |spec|
     'test/*'
   ]
   spec.executables = [ 'filesafe' ]
-  spec.add_runtime_dependency 'pbkdf2-ruby', '~> 0.2', '>= 0.2.0'
   spec.add_runtime_dependency 'highline', '~>1.6.1', '>= 1.6.1'
 end
 
